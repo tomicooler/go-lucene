@@ -1,3 +1,146 @@
+# lucene query -> elastic DSL transformer PoC
+
+DO NOT USE IT. Not working yet, need to re-do the tranform.
+
+
+The goal is to transform lucene query to elastic DSL. Fields can be marked to support has\_child queries (join\_type).
+
+
+example:
+```
+ ./main "field_1:value_1 OR field_2:value_2 AND field_3:fazzy~"
+Parsed  input: field_1:value_1 OR field_2:value_2 AND field_3:fazzy~
+Verbose input: (LITERAL(COLUMN(field_1)):LITERAL("value_1")) OR ((LITERAL(COLUMN(field_2)):LITERAL("value_2")) AND (FUZZY(LITERAL(COLUMN(field_3)):LITERAL("fazzy"))))
+
+{
+  "left": {
+    "left": "field_1",
+    "operator": "EQUALS",
+    "right": "value_1"
+  },
+  "operator": "OR",
+  "right": {
+    "left": {
+      "left": "field_2",
+      "operator": "EQUALS",
+      "right": "value_2"
+    },
+    "operator": "AND",
+    "right": {
+      "left": {
+        "left": "field_3",
+        "operator": "EQUALS",
+        "right": "fazzy"
+      },
+      "operator": "FUZZY"
+    }
+  }
+}
+
+curl -X GET "localhost:9200/_search?pretty" -H 'Content-Type: application/json' -d'
+{
+    "query": {
+        "bool": {
+            "should": [
+                {
+                    "query_string": {
+                        "fields": [
+                            "field_1"
+                        ],
+                        "lenient": true,
+                        "query": "value_1"
+                    }
+                },
+                {
+                    "bool": {
+                        "must": [
+                            {
+                                "query_string": {
+                                    "fields": [
+                                        "field_2"
+                                    ],
+                                    "lenient": true,
+                                    "query": "value_2"
+                                }
+                            },
+                            {
+                                "query_string": {
+                                    "fields": [
+                                        "field_3"
+                                    ],
+                                    "lenient": true,
+                                    "query": "fazzy~"
+                                }
+                            }
+                        ]
+                    }
+                }
+            ]
+        }
+    }
+}
+'
+```
+
+example with join\_field
+```
+./main "field_1:value_1 OR log.content:excaption~" '{"log.content": "log"}'
+Parsed  input: field_1:value_1 OR log.content:excaption~
+Verbose input: (LITERAL(COLUMN(field_1)):LITERAL("value_1")) OR (FUZZY(LITERAL(COLUMN(log.content)):LITERAL("excaption")))
+
+{
+  "left": {
+    "left": "field_1",
+    "operator": "EQUALS",
+    "right": "value_1"
+  },
+  "operator": "OR",
+  "right": {
+    "left": {
+      "left": "log.content",
+      "operator": "EQUALS",
+      "right": "excaption"
+    },
+    "operator": "FUZZY"
+  }
+}
+
+curl -X GET "localhost:9200/_search?pretty" -H 'Content-Type: application/json' -d'
+{
+    "query": {
+        "bool": {
+            "should": [
+                {
+                    "query_string": {
+                        "fields": [
+                            "field_1"
+                        ],
+                        "lenient": true,
+                        "query": "value_1"
+                    }
+                },
+                {
+                    "has_child": {
+                        "query": {
+                            "query_string": {
+                                "fields": [
+                                    "log.content"
+                                ],
+                                "lenient": true,
+                                "query": "excaption~"
+                            }
+                        },
+                        "type": "log"
+                    }
+                }
+            ]
+        }
+    }
+}
+'
+```
+
+
 # go-lucene
 
 A lucene parser written in go with no dependencies.
