@@ -7,7 +7,6 @@ import (
 
 	"github.com/grindlemire/go-lucene"
 	"github.com/grindlemire/go-lucene/pkg/driver"
-	"github.com/grindlemire/go-lucene/pkg/lucene/expr"
 )
 
 func main() {
@@ -22,8 +21,8 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("Parsed  input: %s\n", e)
-	fmt.Printf("Verbose input: %#v\n", e)
+	fmt.Fprintf(os.Stderr, "Parsed  input: %s\n", e)
+	fmt.Fprintf(os.Stderr, "Verbose input: %#v\n", e)
 
 	s, err := json.MarshalIndent(e, "", "  ")
 	if err != nil {
@@ -31,22 +30,23 @@ func main() {
 		os.Exit(1)
 	}
 
-	fmt.Printf("\n%s\n", s)
+	fmt.Fprintf(os.Stderr, "\n%s\n\n", s)
 
-	var e1 expr.Expression
-	err = json.Unmarshal(s, &e1)
-	if err != nil {
-		fmt.Printf("Error unmarshalling from json: %s\n", err)
-		os.Exit(1)
+	m := map[string]string{}
+	if len(os.Args) > 2 {
+		err = json.Unmarshal([]byte(os.Args[2]), &m)
+		if err != nil {
+			fmt.Printf("Error unmarshalling to joins_field json: %s\nexample\n{\"answer.author\": \"answer\"}\n", err)
+			os.Exit(1)
+		}
 	}
 
-	sq, err := driver.NewPostgresDriver().Render(e)
+	fmt.Fprintf(os.Stderr, "curl -X GET \"localhost:9200/_search?pretty\" -H 'Content-Type: application/json' -d'\n")
+	dsl, err := driver.ElasticDSLDriver{Fields: m}.RenderToString(e)
 	if err != nil {
-		fmt.Printf("Error rendering sql: %s\n", err)
+		fmt.Printf("Error rendering to DSL: %s\n", err)
 		os.Exit(1)
 	}
-
-	fmt.Printf("Reparsed input: %v\n", e1)
-	fmt.Printf("Verbose  input: %#v\n", e1)
-	fmt.Printf("SQL     output: %s\n", sq)
+	fmt.Printf("%s\n", dsl)
+	fmt.Fprintf(os.Stderr, "'\n")
 }

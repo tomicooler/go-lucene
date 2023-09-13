@@ -59,6 +59,14 @@ func (e Expression) String() string {
 	return renderer(&e, false)
 }
 
+func (e Expression) FuzzyDistance() int {
+	return e.fuzzyDistance
+}
+
+func (e Expression) BoostPower() float64 {
+	return e.boostPower
+}
+
 // GoString prints a verbose string representation. Useful for debugging exactly
 // what types were parsed. You can print this format using %#v
 func (e Expression) GoString() string {
